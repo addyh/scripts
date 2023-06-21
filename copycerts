@@ -24,7 +24,7 @@ if [ "$3" = "" ]; then
    TO   - the ssh alias for the machine that the certs are to be transferred to
    SITE - the domain name for the site under /etc/letsencrypt/live/
 "
-	exit 1
+	exit 0
 
 else
 
