@@ -3,11 +3,11 @@ Then restarts nginx on that machine.
 
 Remember to update certs on FROM site first:
 
-```sh
+```bash
 sudo certbot -d $SITE -d *.$SITE --preferred-challenges dns --manual certonly
 ```
 or
-```sh
+```bash
 sudo certbot --nginx -d $SITE
 ```
 
