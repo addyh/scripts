@@ -1,3 +1,8 @@
+# Scripts
+
+Various shell scripts.
+
+## fixcerts
 This script copies the letsencrypt certificates for a particular site from one server to another.
 Then restarts nginx on that machine.
 
