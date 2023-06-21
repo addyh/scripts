@@ -17,8 +17,8 @@ SITE=$3
 
 if [ "$3" = "" ]; then
 
-	echo "Usage: "
-	echo "
+	echo "Usage:
+
  fixcerts (FROM) (TO) (SITE)
    FROM - the ssh alias for the machine that the certs are on
    TO   - the ssh alias for the machine that the certs are to be transferred to
