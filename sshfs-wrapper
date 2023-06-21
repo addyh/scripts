@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# https://askubuntu.com/questions/87956/can-you-set-passwords-in-ssh-config-to-allow-automatic-login
+
 password=$(awk '
 BEGIN {
     # Collect the SSH arguments as keys of a dictionary, so that we can easily
