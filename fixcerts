@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# This script copies the letsencrypt certificates for a particular site from one server to another.
+# Then restarts nginx on that machine.
+
+# Remember to update certs on FROM site first:
+
+# sudo certbot -d $SITE -d *.$SITE --preferred-challenges dns --manual certonly
+# or
+# sudo certbot --nginx -d $SITE
+
+# Run this on a local machine with access to both servers
+
+FROM=$1
+TO=$2
+SITE=$3
+
+if [ "$3" = "" ]; then
+
+	echo "Usage: "
+	echo "
+ fixcerts (FROM) (TO) (SITE)
+   FROM - the ssh alias for the machine that the certs are on
+   TO   - the ssh alias for the machine that the certs are to be transferred to
+   SITE - the domain name for the site under /etc/letsencrypt/live/
+"
+	exit 1
+
+else
+
+	# Set permissions
+	ssh -t $FROM "sudo chown user:user /etc/letsencrypt/live"
+	ssh -t $FROM "sudo chown user:user /etc/letsencrypt/archive"
+	ssh -t $FROM "sudo chown -R user:user /etc/letsencrypt/live/$SITE"
+	ssh -t $FROM "sudo chown -R user:user /etc/letsencrypt/archive/$SITE"
+	ssh -t $TO "sudo chown user:user /etc/letsencrypt/live"
+	ssh -t $TO "sudo chown -R user:user /etc/letsencrypt/live/$SITE"
+
+	# Make sure the folder exists where we will be copying the certs to
+	ssh -t $TO "sudo [ -e /etc/letsencrypt/live/$SITE ] || sudo mkdir /etc/letsencrypt/live/$SITE"
+
+	# Remove old version of the certs
+	ssh -t $TO "sudo [ -f /etc/letsencrypt/live/$SITE/fullchain.pem ] && sudo rm /etc/letsencrypt/live/$SITE/fullchain.pem"
+	ssh -t $TO "sudo [ -f /etc/letsencrypt/live/$SITE/privkey.pem ] && sudo rm /etc/letsencrypt/live/$SITE/privkey.pem"
+
+	# Copy the certs over
+	scp -3 $FROM:/etc/letsencrypt/live/$SITE/fullchain.pem $TO:/etc/letsencrypt/live/$SITE/fullchain.pem
+	scp -3 $FROM:/etc/letsencrypt/live/$SITE/privkey.pem $TO:/etc/letsencrypt/live/$SITE/privkey.pem
+
+	# Reset permissions
+	ssh -t $FROM "sudo chown root:root /etc/letsencrypt/live"
+	ssh -t $FROM "sudo chown root:root /etc/letsencrypt/archive"
+	ssh -t $FROM "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
+	ssh -t $FROM "sudo chown -R root:root /etc/letsencrypt/archive/$SITE"
+	ssh -t $TO "sudo chown root:root /etc/letsencrypt/live"
+	ssh -t $TO "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
+
+	# Restart nginx on TO machine
+	ssh -t $TO "sudo service nginx restart"
+
+	exit 0
+
+fi
