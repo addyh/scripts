@@ -1,0 +1,36 @@
+#!/bin/bash
+
+password=$(awk '
+BEGIN {
+    # Collect the SSH arguments as keys of a dictionary, so that we can easily
+    # check for inclusion.
+    for (i = 2; i < ARGC; i++) {
+        sshArgs[ARGV[i]] = 1
+    }
+
+    # Only process the first argument; all others are the command-line arguments
+    # given to sshfs.
+    ARGC = 2
+}
+$1 == "Password" && inhost { print $2 }
+/^Host / {
+    if ($2 in sshArgs)
+        inhost=1
+    else if ($3 in sshArgs)
+        inhost=1
+    else
+        inhost=0
+}
+' ~/.ssh/config "$@")
+
+# unmount if needed, and make directory with perms if needed
+mountpoint -q /mnt/$1 && sudo umount /mnt/$1
+test -d /mnt/$1 || (sudo mkdir -p /mnt/$1 && sudo chown $USER:$USER /mnt/$1)
+
+if [ "$password" ]; then
+    # With password, login to home dir
+    echo "$password" | $(type -P sshfs) $1: /mnt/$1 -o allow_other,default_permissions,password_stdin,idmap=user
+else
+    # Without password login to /
+    $(type -P sshfs) $1:/ /mnt/$1 -o allow_other,default_permissions,idmap=user
+fi

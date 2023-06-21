@@ -1,0 +1,10 @@
+#!/bin/bash
+
+mountpoint -q $1 && sudo umount $1
+[ $? == 0 ] && exit
+
+mountpoint -q /mnt/$1 && sudo umount /mnt/$1
+[ $? == 0 ] && exit
+
+mountpoint -q /media/$USER/$1 && sudo umount /media/$USER/$1
+[ $? == 0 ] && exit
