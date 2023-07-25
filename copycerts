@@ -9,6 +9,10 @@
 # or
 # sudo certbot --nginx -d $SITE
 
+# Verify DNS challenges:
+# sudo apt install dnsutils
+# dig _acme-challenge.$SITE TXT
+
 # Run this on a local machine with access to both servers
 
 FROM=$1
@@ -17,9 +21,8 @@ SITE=$3
 
 if [ "$3" = "" ]; then
 
-	echo "Usage:
+	echo "Usage: copycerts (FROM) (TO) (SITE)
 
- copycerts (FROM) (TO) (SITE)
    FROM - the ssh alias for the machine that the certs are on
    TO   - the ssh alias for the machine that the certs are to be transferred to
    SITE - the domain name for the site under /etc/letsencrypt/live/
@@ -29,12 +32,12 @@ if [ "$3" = "" ]; then
 else
 
 	# Set permissions
-	ssh -t $FROM "sudo chown user:user /etc/letsencrypt/live"
-	ssh -t $FROM "sudo chown user:user /etc/letsencrypt/archive"
-	ssh -t $FROM "sudo chown -R user:user /etc/letsencrypt/live/$SITE"
-	ssh -t $FROM "sudo chown -R user:user /etc/letsencrypt/archive/$SITE"
-	ssh -t $TO "sudo chown user:user /etc/letsencrypt/live"
-	ssh -t $TO "sudo chown -R user:user /etc/letsencrypt/live/$SITE"
+	ssh -t $FROM "sudo chown \$USER:\$USER /etc/letsencrypt/live"
+	ssh -t $FROM "sudo chown \$USER:\$USER /etc/letsencrypt/archive"
+	ssh -t $FROM "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
+	ssh -t $FROM "sudo chown -R \$USER:\$USER /etc/letsencrypt/archive/$SITE"
+	ssh -t $TO "sudo chown \$USER:\$USER /etc/letsencrypt/live"
+	ssh -t $TO "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
 
 	# Make sure the folder exists where we will be copying the certs to
 	ssh -t $TO "sudo [ -e /etc/letsencrypt/live/$SITE ] || sudo mkdir /etc/letsencrypt/live/$SITE"
@@ -58,6 +61,7 @@ else
 	# Restart nginx on TO machine
 	ssh -t $TO "sudo service nginx restart"
 
+	echo "SUCCESS!"
 	exit 0
 
 fi
