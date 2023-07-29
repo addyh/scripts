@@ -1,19 +1,24 @@
 #!/bin/bash
 
-# This script copies the letsencrypt certificates for a particular site from one server to another.
-# Then restarts nginx on that machine.
+# This script copies the letsencrypt certificates for a particular site FROM one server TO another.
+# Then restarts nginx on the TO machine.
+
+# *** Run this on a local machine with ssh access to both servers. ***
+
+# Requirements: certbot
+# sudo apt install python3-certbot-nginx
 
 # Remember to update certs on FROM site first:
 
+# with wildcard:
 # sudo certbot -d $SITE -d *.$SITE --preferred-challenges dns --manual certonly
 # or
+# without wildcard:
 # sudo certbot --nginx -d $SITE
 
-# Verify DNS challenges:
+# Verify DNS challenges (on another server):
 # sudo apt install dnsutils
 # dig _acme-challenge.$SITE TXT
-
-# Run this on a local machine with access to both servers
 
 FROM=$1
 TO=$2
@@ -61,7 +66,7 @@ else
 	# Restart nginx on TO machine
 	ssh -t $TO "sudo service nginx restart"
 
-	echo "SUCCESS!"
+	echo "DONE!"
 	exit 0
 
 fi
