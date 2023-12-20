@@ -4,13 +4,13 @@ if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 
 	echo "Usage:
 
- unmount (MOUNTPOINT)
+ unmount <MOUNTPOINT>
    MOUNTPOINT - any mountpoint, could be by name or path. eg:
      unmount mountplace
 
    If above fails, the following will be tried automatically:
-     unmount /mnt/mountplace
-     unmount /media/$USER/mountplace
+     unmount /mnt/MOUNTPOINT
+     unmount /media/$USER/MOUNTPOINT
 "
 	exit 0
 
