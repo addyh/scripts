@@ -1,72 +1,122 @@
-#!/bin/bash
+#!/bin/sh
+VERSION=2025.04.20
 
 # This script copies the letsencrypt certificates for a particular site FROM one server TO another.
 # Then restarts nginx on the TO machine.
 
-# *** Run this on a local machine with ssh access to both servers. ***
+set -eu
 
-# Requirements: certbot
-# sudo apt install python3-certbot-nginx
+version() {
+	echo "copycerts version $VERSION"
+}
 
-# Remember to update certs on FROM site first:
+help() {
+	echo "
+Copies the letsencrypt certificates for a particular site FROM one server TO another.
+Then restarts nginx on the TO machine.
 
-# with wildcard:
-# sudo certbot -d $SITE -d *.$SITE --preferred-challenges dns --manual certonly
-# or
-# without wildcard:
-# sudo certbot --nginx -d $SITE
+*** Run this on a local machine with ssh access to both servers. ***
 
-# Verify DNS challenges (on another server):
-# sudo apt install dnsutils
-# dig _acme-challenge.$SITE TXT
+Requirements: certbot (python3-certbot-nginx)
 
-FROM=$1
-TO=$2
-SITE=$3
+Remember to update certs on FROM site first:
 
-if [ "$3" = "" ]; then
+- With wildcard:
+	SITE=mysite.com && sudo certbot -d \$SITE -d *.\$SITE --preferred-challenges dns --manual certonly
 
-	echo "Usage: copycerts (FROM) (TO) (SITE)
+- Without wildcard:
+	SITE=mysite.com && sudo certbot --nginx -d \$SITE
+
+- For www:
+	SITE=mysite.com && sudo certbot --nginx -d \$SITE -d www.\$SITE
+
+Verify DNS challenges (on another server):
+	Requires: dnsutils
+	dig _acme-challenge.\$SITE TXT
+"
+}
+
+usage() {
+	echo "Usage: copycerts <FROM> <TO> <SITE>
 
    FROM - the ssh alias for the machine that the certs are on
    TO   - the ssh alias for the machine that the certs are to be transferred to
    SITE - the domain name for the site under /etc/letsencrypt/live/
 "
-	exit 0
+}
 
+if [ "$#" -lt 1 ]; then
+	version
+	help
+	usage
+	exit 0
+fi
+
+case "$1" in
+	-h|--help|help)
+		version
+		help
+		usage
+		exit 0
+		;;
+	-v|--version|version)
+		version
+		exit 0
+		;;
+esac
+
+if [ "$#" -lt 3 ]; then
+	echo "ERROR: <FROM> <TO> <SITE> required."
+	echo
+	usage
+	exit 1
 else
 
+	FROM="$1"
+	TO="$2"
+	SITE="$3"
+
+	# Verify both cert files exist on FROM
+	ssh "$FROM" "sudo test -f /etc/letsencrypt/live/$SITE/fullchain.pem" || {
+		echo "ERROR: fullchain.pem not found on $FROM for $SITE"
+		exit 1
+	}
+
+	ssh "$FROM" "sudo test -f /etc/letsencrypt/live/$SITE/privkey.pem" || {
+		echo "ERROR: privkey.pem not found on $FROM for $SITE"
+		exit 1
+	}
+
 	# Set permissions
-	ssh -t $FROM "sudo chown \$USER:\$USER /etc/letsencrypt/live"
-	ssh -t $FROM "sudo chown \$USER:\$USER /etc/letsencrypt/archive"
-	ssh -t $FROM "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
-	ssh -t $FROM "sudo chown -R \$USER:\$USER /etc/letsencrypt/archive/$SITE"
-	ssh -t $TO "sudo chown \$USER:\$USER /etc/letsencrypt/live"
-	ssh -t $TO "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
+	ssh -t "$FROM" "sudo chown \$USER:\$USER /etc/letsencrypt/live"
+	ssh -t "$FROM" "sudo chown \$USER:\$USER /etc/letsencrypt/archive"
+	ssh -t "$FROM" "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
+	ssh -t "$FROM" "sudo chown -R \$USER:\$USER /etc/letsencrypt/archive/$SITE"
+	ssh -t "$TO" "sudo chown \$USER:\$USER /etc/letsencrypt/live"
+	ssh -t "$TO" "sudo chown -R \$USER:\$USER /etc/letsencrypt/live/$SITE"
 
 	# Make sure the folder exists where we will be copying the certs to
-	ssh -t $TO "sudo [ -e /etc/letsencrypt/live/$SITE ] || sudo mkdir /etc/letsencrypt/live/$SITE"
+	ssh -t "$TO" "sudo [ -e /etc/letsencrypt/live/$SITE ] || sudo mkdir -p /etc/letsencrypt/live/$SITE"
 
 	# Remove old version of the certs
-	ssh -t $TO "sudo [ -f /etc/letsencrypt/live/$SITE/fullchain.pem ] && sudo rm /etc/letsencrypt/live/$SITE/fullchain.pem"
-	ssh -t $TO "sudo [ -f /etc/letsencrypt/live/$SITE/privkey.pem ] && sudo rm /etc/letsencrypt/live/$SITE/privkey.pem"
+	ssh -t "$TO" "sudo [ -f /etc/letsencrypt/live/$SITE/fullchain.pem ] && sudo rm /etc/letsencrypt/live/$SITE/fullchain.pem"
+	ssh -t "$TO" "sudo [ -f /etc/letsencrypt/live/$SITE/privkey.pem ] && sudo rm /etc/letsencrypt/live/$SITE/privkey.pem"
 
 	# Copy the certs over
-	scp -3 $FROM:/etc/letsencrypt/live/$SITE/fullchain.pem $TO:/etc/letsencrypt/live/$SITE/fullchain.pem
-	scp -3 $FROM:/etc/letsencrypt/live/$SITE/privkey.pem $TO:/etc/letsencrypt/live/$SITE/privkey.pem
+	scp -3 "$FROM:/etc/letsencrypt/live/$SITE/fullchain.pem" "$TO:/etc/letsencrypt/live/$SITE/fullchain.pem"
+	scp -3 "$FROM:/etc/letsencrypt/live/$SITE/privkey.pem" "$TO:/etc/letsencrypt/live/$SITE/privkey.pem"
 
 	# Reset permissions
-	ssh -t $FROM "sudo chown root:root /etc/letsencrypt/live"
-	ssh -t $FROM "sudo chown root:root /etc/letsencrypt/archive"
-	ssh -t $FROM "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
-	ssh -t $FROM "sudo chown -R root:root /etc/letsencrypt/archive/$SITE"
-	ssh -t $TO "sudo chown root:root /etc/letsencrypt/live"
-	ssh -t $TO "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
+	ssh -t "$FROM" "sudo chown root:root /etc/letsencrypt/live"
+	ssh -t "$FROM" "sudo chown root:root /etc/letsencrypt/archive"
+	ssh -t "$FROM" "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
+	ssh -t "$FROM" "sudo chown -R root:root /etc/letsencrypt/archive/$SITE"
+	ssh -t "$TO" "sudo chown root:root /etc/letsencrypt/live"
+	ssh -t "$TO" "sudo chown -R root:root /etc/letsencrypt/live/$SITE"
 
 	# Restart nginx on TO machine
-	ssh -t $TO "sudo service nginx restart"
+	ssh -t "$TO" "sudo service nginx restart"
 
 	echo "DONE!"
 	exit 0
-
 fi
